@@ -1,0 +1,105 @@
+---
+title: "Giuliani PCSR immune cleaning"
+author: "Michelle Byrne"
+date: "June 19, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+setwd("C:/Users/michelle/Dropbox/academic/collaboration/giuliani_immune")
+```
+
+## All processing and cleaning for immune markers in Nicole Giuliani's PCSR project
+
+Calculate intra-assay CVs (from optical density) from the sample CVs:
+
+```{r intra_cvs}
+intraassays <- read_csv("intraassays.csv")
+View(intraassays)
+crp_pl1_cv <- mean(intraassays$crp_pl1)
+crp_pl2_cv <- mean(intraassays$crp_pl2)
+il1b_pl1_cv <- mean(intraassays$il1b_pl1)
+il1b_pl2_cv <- mean(intraassays$il1b_pl2)
+siga_pl1_cv <- mean(intraassays$siga_pl1)
+siga_pl2_cv <- mean(intraassays$siga_pl2)
+il6_pl1_cv <- mean(intraassays$il6_pl1)
+il6_pl2_cv <- mean(intraassays$il6_pl2)
+```
+
+Calculate inter-assay CVs (from optical density) from the high and low controls:
+
+```{r inter_cvs}
+interassays <- read_csv("~/Dropbox/academic/collaboration/giuliani_immune/interassays.csv")
+View(interassays)
+# Calculate mean for controls by plate:
+interassays$plate_mean <- rowMeans(interassays[,c(4:5)])
+
+# CRP:
+# Mean of high controls across plates:
+crp_high_mean <- mean(data.matrix(interassays[interassays$marker=="crp"&interassays$control=="high","plate_mean"]))
+# SD of high controls across plates:
+crp_high_sd <- sd(data.matrix(interassays[interassays$marker=="crp"&interassays$control=="high","plate_mean"]))
+# % CV high across plates:
+crp_high_cv <- (crp_high_sd/crp_high_mean)*100
+# Mean of low controls across plates:
+crp_low_mean <- mean(data.matrix(interassays[interassays$marker=="crp"&interassays$control=="low","plate_mean"]))
+# SD of low controls across plates:
+crp_low_sd <- sd(data.matrix(interassays[interassays$marker=="crp"&interassays$control=="low","plate_mean"]))
+# % CV low across plates:
+crp_low_cv <- (crp_low_sd/crp_low_mean)*100
+# AVERAGE % CV:
+crp_inter_cv <- (crp_low_cv + crp_high_cv)/2
+
+# IL-1B:
+# Mean of high controls across plates:
+il1b_high_mean <- mean(data.matrix(interassays[interassays$marker=="il1b"&interassays$control=="high","plate_mean"]))
+# SD of high controls across plates:
+il1b_high_sd <- sd(data.matrix(interassays[interassays$marker=="il1b"&interassays$control=="high","plate_mean"]))
+# % CV high across plates:
+il1b_high_cv <- (il1b_high_sd/il1b_high_mean)*100
+# Mean of low controls across plates:
+il1b_low_mean <- mean(data.matrix(interassays[interassays$marker=="il1b"&interassays$control=="low","plate_mean"]))
+# SD of low controls across plates:
+il1b_low_sd <- sd(data.matrix(interassays[interassays$marker=="il1b"&interassays$control=="low","plate_mean"]))
+# % CV low across plates:
+il1b_low_cv <- (il1b_low_sd/il1b_low_mean)*100
+# AVERAGE % CV:
+il1b_inter_cv <- (il1b_low_cv + il1b_high_cv)/2
+
+# SIgA:
+# Mean of high controls across plates:
+siga_high_mean <- mean(data.matrix(interassays[interassays$marker=="siga"&interassays$control=="high","plate_mean"]))
+# SD of high controls across plates:
+siga_high_sd <- sd(data.matrix(interassays[interassays$marker=="siga"&interassays$control=="high","plate_mean"]))
+# % CV high across plates:
+siga_high_cv <- (siga_high_sd/siga_high_mean)*100
+# Mean of low controls across plates:
+siga_low_mean <- mean(data.matrix(interassays[interassays$marker=="siga"&interassays$control=="low","plate_mean"]))
+# SD of low controls across plates:
+siga_low_sd <- sd(data.matrix(interassays[interassays$marker=="siga"&interassays$control=="low","plate_mean"]))
+# % CV low across plates:
+siga_low_cv <- (siga_low_sd/siga_low_mean)*100
+# AVERAGE % CV:
+siga_inter_cv <- (siga_low_cv + siga_high_cv)/2
+
+# IL-6:
+# Mean of high controls across plates:
+il6_high_mean <- mean(data.matrix(interassays[interassays$marker=="il6"&interassays$control=="high","plate_mean"]))
+# SD of high controls across plates:
+il6_high_sd <- sd(data.matrix(interassays[interassays$marker=="il6"&interassays$control=="high","plate_mean"]))
+# % CV high across plates:
+il6_high_cv <- (il6_high_sd/il6_high_mean)*100
+# Mean of low controls across plates:
+il6_low_mean <- mean(data.matrix(interassays[interassays$marker=="il6"&interassays$control=="low","plate_mean"]))
+# SD of low controls across plates:
+il6_low_sd <- sd(data.matrix(interassays[interassays$marker=="il6"&interassays$control=="low","plate_mean"]))
+# % CV low across plates:
+il6_low_cv <- (il6_low_sd/il6_low_mean)*100
+# AVERAGE % CV:
+il6_inter_cv <- (il6_low_cv + il6_high_cv)/2
+
+
+```
+
