@@ -188,8 +188,8 @@ Correct your data for flow rate
 
 ```{r}
 vol_ml = 2.5
-pcsr_immune$fr <- vol_ml / pcsr_immune$flowsec
-pcsr_immune$siga_frc <- pcsr_immune$siga * pcsr_immune$fr # still need to change below vars to siga_frc
+pcsr_immune$fr <- vol_ml / pcsr_immune$duration_sec
+pcsr_immune$siga_frc <- pcsr_immune$siga_raw * pcsr_immune$fr # still need to change below vars to siga_frc
 ```
 
 
@@ -199,7 +199,7 @@ Check normality, outliers, and skew stats in the raw concentrations
 # Histograms for immune markers to visualize normality
 hist(pcsr_immune$crp_raw)
 hist(pcsr_immune$il1b_raw)
-hist(pcsr_immune$siga_raw)
+hist(pcsr_immune$siga_frc)
 hist(pcsr_immune$il6_raw)
 
 #Boxplots to visualize outliers
@@ -215,7 +215,7 @@ ggplot(pcsr_immune, aes(x = "", y = il1b_raw)) +
   ylab("IL1-B (ng/ml)") +
   ggtitle("PCSR IL1-B") +
   geom_smooth(method='lm', color="black")
-ggplot(pcsr_immune, aes(x = "", y = siga_raw)) +   
+ggplot(pcsr_immune, aes(x = "", y = siga_frc)) +   
   geom_boxplot() +
   ylab("SIgA (ng/ml)") +
   ggtitle("PCSR SIgA") +
@@ -233,7 +233,7 @@ crp_summary <- describe(pcsr_immune$crp_raw)
 crp_summary
 il1b_summary <- describe(pcsr_immune$il1b_raw)
 il1b_summary
-siga_summary <- describe(pcsr_immune$siga_raw)
+siga_summary <- describe(pcsr_immune$siga_frc)
 siga_summary
 il6_summary <- describe(pcsr_immune$il6_raw)
 il6_summary
@@ -253,16 +253,17 @@ if (il1b_summary$skew > 2 | il1b_summary$skew < -2 | il1b_summary$kurtosis > 2 |
   pcsr_immune$ln_il1b <- as.numeric(lapply(pcsr_immune$il1b_raw, log))
 }
 if (siga_summary$skew > 2 | siga_summary$skew < -2 | siga_summary$kurtosis > 2 | siga_summary$kurtosis < -2) {
-  pcsr_immune$ln_siga <- as.numeric(lapply(pcsr_immune$siga_raw, log))
+  pcsr_immune$ln_siga <- as.numeric(lapply(pcsr_immune$siga_frc, log))
 }
 if (il6_summary$skew > 2 | il6_summary$skew < -2 | il6_summary$kurtosis > 2 | il6_summary$kurtosis < -2) {
   pcsr_immune$ln_il6 <- as.numeric(lapply(pcsr_immune$il6_raw, log))
 }
 
 # Check everything post transformation for any transformed variables 
-describe(pcsr_immune$ln_il1b)
-describe(pcsr_immune$ln_siga)
-describe(pcsr_immune$ln_il6)
+final_crp_summary <- describe(pcsr_immune$crp_raw)
+final_il1b_summary <- describe(pcsr_immune$ln_il1b)
+final_siga_summary <- describe(pcsr_immune$ln_siga)
+final_il6_summary <- describe(pcsr_immune$ln_il6)
 
 hist(pcsr_immune$crp_raw)
 hist(pcsr_immune$ln_il1b)
@@ -290,21 +291,21 @@ ggplot(pcsr_immune, aes(x = "", y = ln_il6)) +
 Winsorize any remaining outliers that are +/- 3 SD (if any)
 
 ```{r}
-crp_up_limit <- (crp_summary$mean + 3*(crp_summary$sd))
+crp_up_limit <- (final_crp_summary$mean + 3*(final_crp_summary$sd))
 crp_up_limit
-crp_lo_limit <- (crp_summary$mean - 3*(crp_summary$sd))
+crp_lo_limit <- (final_crp_summary$mean - 3*(final_crp_summary$sd))
 crp_lo_limit
-il1b_up_limit <- (il1b_summary$mean + 3*(il1b_summary$sd))
+il1b_up_limit <- (final_il1b_summary$mean + 3*(final_il1b_summary$sd))
 il1b_up_limit
-il1b_lo_limit <- (il1b_summary$mean - 3*(il1b_summary$sd))
+il1b_lo_limit <- (final_il1b_summary$mean - 3*(final_il1b_summary$sd))
 il1b_lo_limit
-siga_up_limit <- (siga_summary$mean + 3*(siga_summary$sd))
+siga_up_limit <- (final_siga_summary$mean + 3*(final_siga_summary$sd))
 siga_up_limit
-siga_lo_limit <- (siga_summary$mean - 3*(siga_summary$sd))
+siga_lo_limit <- (final_siga_summary$mean - 3*(final_siga_summary$sd))
 siga_lo_limit
-il6_up_limit <- (il6_summary$mean + 3*(il6_summary$sd))
+il6_up_limit <- (final_il6_summary$mean + 3*(final_il6_summary$sd))
 il6_up_limit
-il6_lo_limit <- (il6_summary$mean - 3*(il6_summary$sd))
+il6_lo_limit <- (final_il6_summary$mean - 3*(final_il6_summary$sd))
 il6_lo_limit
 
 # First check if there are any outliers (if not, no need to winsorize). Also, report these numbers. (in this case there were none, so there is no more code for winsorizing here)
@@ -326,9 +327,21 @@ il6_num_left_outliers <- length(na.omit(pcsr_immune$ln_il6 [pcsr_immune$ln_il6 <
 il6_num_left_outliers
 
 ```
+In this data, there is one SIgA left outlier, and one IL-6 right outlier only. Winsorize these values.
+```{r}
+library(DescTools)
+pcsr_immune$siga_w <- Winsorize(pcsr_immune$ln_siga, minval = siga_lo_limit, maxval = siga_up_limit, na.rm = TRUE)
+pcsr_immune$il6_w <- Winsorize(pcsr_immune$ln_il6, minval = il6_lo_limit, maxval = il6_up_limit, na.rm = TRUE)
+```
+
 
 Output final cleaned data
 ```{r}
+pcsr_immune$crp_cleaned <- pcsr_immune$crp_raw
+pcsr_immune$il1b_cleaned <- pcsr_immune$ln_il1b
+pcsr_immune$siga_cleaned <- pcsr_immune$siga_w
+pcsr_immune$il6_cleaned <- pcsr_immune$il6_w
+
 write.csv(pcsr_immune, file="immune_cleaned.csv")
 ```
 
