@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
-setwd("C:/Users/michelle/Dropbox/academic/collaboration/giuliani_immune")
+knitr::opts_knit$set(root.dir = '/home/michelle/Dropbox/academic/collaboration/giuliani_immune')
 ```
 
 ## All processing and cleaning for immune markers in Nicole Giuliani's PCSR project
@@ -189,7 +189,7 @@ Correct your data for flow rate
 ```{r}
 vol_ml = 2.5
 pcsr_immune$fr <- vol_ml / pcsr_immune$duration_sec
-pcsr_immune$siga_frc <- pcsr_immune$siga_raw * pcsr_immune$fr # still need to change below vars to siga_frc
+pcsr_immune$siga_frc <- pcsr_immune$siga_raw * pcsr_immune$fr 
 ```
 
 
@@ -244,46 +244,57 @@ If necessary, transform data
 
 ```{r}
  
-# if skew or kurtosis is < -2 or > 2 then calculate the natural log of that variable
+# if skew or kurtosis is < -2 or > 2 (or in the case of CRP, visual inspection shows it's not normal), then calculate the natural log of that variable
+#Note: although it is common to do a natural log or square root transformation, these transfromations did not result in acceptable skew/kurtosis stats. Therefore, we chose to use the transform Tukey funciton, which uses iterative Shapiro-Wilk tests, and finds the lambda values that maximizes the W statistic from those tests. (e.g., find power transformation that makes the data fit the normal distribution as closely as possible). See info on rcompanion for more.
+library(rcompanion)
 
 if (crp_summary$skew > 2 | crp_summary$skew < -2 | crp_summary$kurtosis > 2 | crp_summary$kurtosis < -2) {
-  pcsr_immune$ln_crp <- as.numeric(lapply(pcsr_immune$crp_raw, log))
+  pcsr_immune$t_crp <- transformTukey(pcsr_immune$crp_raw)
 }
+
+# transform CRP anyway because visual inspection shows it's not normal
+pcsr_immune$t_crp <- transformTukey(pcsr_immune$crp_raw)
+
 if (il1b_summary$skew > 2 | il1b_summary$skew < -2 | il1b_summary$kurtosis > 2 | il1b_summary$kurtosis < -2) {
-  pcsr_immune$ln_il1b <- as.numeric(lapply(pcsr_immune$il1b_raw, log))
+  pcsr_immune$t_il1b <- transformTukey(pcsr_immune$il1b_raw)
 }
 if (siga_summary$skew > 2 | siga_summary$skew < -2 | siga_summary$kurtosis > 2 | siga_summary$kurtosis < -2) {
-  pcsr_immune$ln_siga <- as.numeric(lapply(pcsr_immune$siga_frc, log))
+  pcsr_immune$t_siga <- transformTukey(pcsr_immune$siga_frc)
 }
 if (il6_summary$skew > 2 | il6_summary$skew < -2 | il6_summary$kurtosis > 2 | il6_summary$kurtosis < -2) {
-  pcsr_immune$ln_il6 <- as.numeric(lapply(pcsr_immune$il6_raw, log))
+  pcsr_immune$t_il6 <- transformTukey(pcsr_immune$il6_raw)
 }
 
 # Check everything post transformation for any transformed variables 
-final_crp_summary <- describe(pcsr_immune$crp_raw)
-final_il1b_summary <- describe(pcsr_immune$ln_il1b)
-final_siga_summary <- describe(pcsr_immune$ln_siga)
-final_il6_summary <- describe(pcsr_immune$ln_il6)
+final_crp_summary <- describe(pcsr_immune$t_crp) 
+final_il1b_summary <- describe(pcsr_immune$t_il1b)
+final_siga_summary <- describe(pcsr_immune$t_siga)
+final_il6_summary <- describe(pcsr_immune$t_il6)
 
-hist(pcsr_immune$crp_raw)
-hist(pcsr_immune$ln_il1b)
-hist(pcsr_immune$ln_siga)
-hist(pcsr_immune$ln_il6)
+hist(pcsr_immune$t_crp)
+hist(pcsr_immune$t_il1b)
+hist(pcsr_immune$t_siga)
+hist(pcsr_immune$t_il6)
 
-ggplot(pcsr_immune, aes(x = "", y = ln_il1b)) +   
+ggplot(pcsr_immune, aes(x = "", y = t_crp)) +   
   geom_boxplot() +
-  ylab("log (IL1-B)") +
-  ggtitle("PCSR IL1-B (log transformed)") +
+  ylab("Tukey (CRP)") +
+  ggtitle("PCSR CRP (transformed)") +
   geom_smooth(method='lm', color="black")
-ggplot(pcsr_immune, aes(x = "", y = ln_siga)) +   
+ggplot(pcsr_immune, aes(x = "", y = t_il1b)) +   
   geom_boxplot() +
-  ylab("log (SIgA)") +
-  ggtitle("PCSR SIgA (log transformed)") +
+  ylab("Tukey (IL1-B)") +
+  ggtitle("PCSR IL1-B (transformed)") +
   geom_smooth(method='lm', color="black")
-ggplot(pcsr_immune, aes(x = "", y = ln_il6)) +   
+ggplot(pcsr_immune, aes(x = "", y = t_siga)) +   
   geom_boxplot() +
-  ylab("log (IL-6)") +
-  ggtitle("PCSR IL-6 (log transformed)") +
+  ylab("Tukey (SIgA)") +
+  ggtitle("PCSR SIgA (transformed)") +
+  geom_smooth(method='lm', color="black")
+ggplot(pcsr_immune, aes(x = "", y = t_il6)) +   
+  geom_boxplot() +
+  ylab("Tukey (IL-6)") +
+  ggtitle("PCSR IL-6 (transformed)") +
   geom_smooth(method='lm', color="black")
 
 ```
@@ -309,38 +320,38 @@ il6_lo_limit <- (final_il6_summary$mean - 3*(final_il6_summary$sd))
 il6_lo_limit
 
 # First check if there are any outliers (if not, no need to winsorize). Also, report these numbers. (in this case there were none, so there is no more code for winsorizing here)
-crp_num_right_outliers <- length(na.omit(pcsr_immune$crp_raw [pcsr_immune$crp_raw > crp_up_limit])) 
+crp_num_right_outliers <- length(na.omit(pcsr_immune$t_crp [pcsr_immune$t_crp > crp_up_limit])) 
 crp_num_right_outliers
-crp_num_left_outliers <- length(na.omit(pcsr_immune$crp_raw [pcsr_immune$crp_raw < crp_lo_limit])) 
+crp_num_left_outliers <- length(na.omit(pcsr_immune$t_crp [pcsr_immune$t_crp < crp_lo_limit])) 
 crp_num_left_outliers 
-il1b_num_right_outliers <- length(na.omit(pcsr_immune$ln_il1b [pcsr_immune$ln_il1b > il1b_up_limit]))
+il1b_num_right_outliers <- length(na.omit(pcsr_immune$t_il1b [pcsr_immune$t_il1b > il1b_up_limit]))
 il1b_num_right_outliers
-il1b_num_left_outliers <- length(na.omit(pcsr_immune$ln_il1b [pcsr_immune$ln_il1b < il1b_lo_limit])) 
+il1b_num_left_outliers <- length(na.omit(pcsr_immune$t_il1b [pcsr_immune$t_il1b < il1b_lo_limit])) 
 il1b_num_left_outliers
-siga_num_right_outliers <- length(na.omit(pcsr_immune$ln_siga [pcsr_immune$ln_siga > siga_up_limit]))
+siga_num_right_outliers <- length(na.omit(pcsr_immune$t_siga [pcsr_immune$t_siga > siga_up_limit]))
 siga_num_right_outliers 
-siga_num_left_outliers <- length(na.omit(pcsr_immune$ln_siga [pcsr_immune$ln_siga < siga_lo_limit])) 
+siga_num_left_outliers <- length(na.omit(pcsr_immune$t_siga [pcsr_immune$t_siga < siga_lo_limit])) 
 siga_num_left_outliers
-il6_num_right_outliers <- length(na.omit(pcsr_immune$ln_il6 [pcsr_immune$ln_il6 > il6_up_limit])) 
+il6_num_right_outliers <- length(na.omit(pcsr_immune$t_il6 [pcsr_immune$t_il6 > il6_up_limit])) 
 il6_num_right_outliers
-il6_num_left_outliers <- length(na.omit(pcsr_immune$ln_il6 [pcsr_immune$ln_il6 < il6_lo_limit])) 
+il6_num_left_outliers <- length(na.omit(pcsr_immune$t_il6 [pcsr_immune$t_il6 < il6_lo_limit])) 
 il6_num_left_outliers
 
 ```
-In this data, there is one SIgA left outlier, and one IL-6 right outlier only. Winsorize these values.
+In this data, there are no outliers, but here is some code for how you would do that.
 ```{r}
-library(DescTools)
-pcsr_immune$siga_w <- Winsorize(pcsr_immune$ln_siga, minval = siga_lo_limit, maxval = siga_up_limit, na.rm = TRUE)
-pcsr_immune$il6_w <- Winsorize(pcsr_immune$ln_il6, minval = il6_lo_limit, maxval = il6_up_limit, na.rm = TRUE)
+#library(DescTools)
+#pcsr_immune$siga_w <- Winsorize(pcsr_immune$t_siga, minval = siga_lo_limit, maxval = siga_up_limit, na.rm = TRUE)
+#pcsr_immune$il6_w <- Winsorize(pcsr_immune$t_il6, minval = il6_lo_limit, maxval = il6_up_limit, na.rm = TRUE)
 ```
 
 
 Output final cleaned data
 ```{r}
-pcsr_immune$crp_cleaned <- pcsr_immune$crp_raw
-pcsr_immune$il1b_cleaned <- pcsr_immune$ln_il1b
-pcsr_immune$siga_cleaned <- pcsr_immune$siga_w
-pcsr_immune$il6_cleaned <- pcsr_immune$il6_w
+pcsr_immune$crp_cleaned <- pcsr_immune$t_crp
+pcsr_immune$il1b_cleaned <- pcsr_immune$t_il1b
+pcsr_immune$siga_cleaned <- pcsr_immune$t_siga
+pcsr_immune$il6_cleaned <- pcsr_immune$t_il6
 
 write.csv(pcsr_immune, file="immune_cleaned.csv")
 ```
